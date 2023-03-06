@@ -1,0 +1,9 @@
+.env
+wikipedia-iso-country-codes.csv
+cogs/__pycache__/admin_commands.cpython-310.pyc
+cogs/__pycache__/weather.cpython-310.pyc
+cogs/__pycache__/MyMenuPages.cpython-310.pyc
+__pycache__/MyMenuPages.cpython-310.pyc
+cogs/__pycache__/button.cpython-310.pyc
+ivaylo_quotes.txt
+mark_adlibs.txt
