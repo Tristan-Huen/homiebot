@@ -138,8 +138,8 @@ class ForecastSource(menus.ListPageSource):
             embed.add_field(name = "High/Low Temperature", value = f"{low_temp}-{high_temp}°C", inline = True)
             embed.add_field(name = "Description", value = weather_descrip, inline = False)
             embed.add_field(name = "Precipitation Chance", value = f"{precip_prob}%", inline = True)
-            embed.add_field(name = "Precipitation", value = f"{precip}mm/hr", inline = True)
-            embed.add_field(name = "Snowfall", value = f"{snow}mm/hr", inline = False)
+            embed.add_field(name = "Precipitation", value = f"{round(precip,2)}mm/hr", inline = True)
+            embed.add_field(name = "Snowfall", value = f"{round(snow,2)}mm/hr", inline = False)
             embed.add_field(name = "UV-Index", value = f"{entries['uv']} ({uv_classification})", inline = False)
             embed.add_field(name = "Relative Humidity", value = f"{round(humidity,2)}%", inline = False)
             embed.add_field(name = "Wind Speed", value = f"{round(wind_spd,2)}m/s", inline = True)
@@ -154,7 +154,7 @@ class Weather(commands.Cog):
         self.bot = bot
     
     #Current Weather Command
-    @commands.command()
+    @commands.command(help="Gives the current weather in a city.")
     async def weather(self, ctx, *, city:str = DEFAULT_CITY) -> None:
 
         #Argument can be in form of City,Country Code (last is optional but will
@@ -215,7 +215,7 @@ class Weather(commands.Cog):
                 await ctx.send(embed=embed)
 
     #7-Day Forecast Command
-    @commands.command()
+    @commands.command(help="Gives the weekly forecast for city.")
     async def weeklyforecast(self, ctx, *, city:str = DEFAULT_CITY) -> None:
 
         #Argument can be in form of City,Country Code (last is optional but will

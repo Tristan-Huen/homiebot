@@ -57,13 +57,14 @@ class AdminCommands(commands.Cog):
             self.ivaylo_quotes = f.readlines()
 
     # Ping Command.
-    @commands.command()
+    @commands.command(help="Returns bot latency in milliseconds.")
     async def ping(self, ctx)-> None:
         #Fixed by https://stackoverflow.com/questions/65263497/latency-in-a-cog-in-discord-py-isnt-recognized-as-a-valid-attribute
         await ctx.reply(f'Pong! {round(self.bot.latency * 1000)} ms')
 
     # Purge Command
-    @commands.command(aliases = ['purge','delete'], description='Purges a given amount of messages')
+    @commands.command(aliases = ['purge','delete'], description='Purges a given amount of messages.',
+                      help="Deletes a given amount of messages. Max limit is 100.")
     @commands.has_permissions(manage_messages=True)
     async def clear(self, ctx, limit:int)-> None:
         if limit == None:
@@ -74,7 +75,7 @@ class AdminCommands(commands.Cog):
             await ctx.channel.purge(limit = limit + 1)
 
     # Random Image of Person Command.
-    @commands.command()
+    @commands.command(help="Gets the photo of a random person in the server. Use their first name with the first letter capitalized.")
     async def image(self, ctx, name:str) -> None:
         try:
             photo = random.choice(os.listdir(os.getenv('PHOTO_DIRECTORY') + name))
@@ -93,19 +94,19 @@ class AdminCommands(commands.Cog):
             await ctx.channel.send(photo=discord.File(os.getenv('PHOTO_DIRECTORY') + name + "\\" +photo))
 
     # Send random Mark Adlib.
-    @commands.command()
+    @commands.command(help="Says a random Mark adlib.")
     async def markadlib(self, ctx)-> None:
         adlib = random.choice(self.mark_quotes)
         await ctx.channel.send(f"Mark says: {adlib}")
 
     # Send random Ivaylo League quote.
-    @commands.command()
+    @commands.command(help="Says a random Ivaylo quote when he plays LOL")
     async def ivayloquote(self, ctx)-> None:
         quote = random.choice(self.ivaylo_quotes)
         await ctx.channel.send(f"Ivaylo in League of Legends says: {quote}")
     
     # Moves members to a specified channel.
-    @commands.command()
+    @commands.command(help="Moves the given user(s) to a specified voice channel")
     @commands.has_guild_permissions(move_members=True) #Other permissions property assumes only text-channels
     async def move(self, ctx, users:commands.Greedy[discord.Member], *,channel:str)-> None:
         names = ", ".join(user.display_name for user in users)
@@ -139,7 +140,7 @@ class AdminCommands(commands.Cog):
         await ctx.reply(f"Moved {names} to {channel}")
     
     # Moves all members in the user's voice channnel to a specified channel.
-    @commands.command()
+    @commands.command(help="Moves all the members in your current voice channel to a specified voice channel")
     @commands.has_guild_permissions(move_members=True) #Other permissions property assumes only text-channels
     async def moveall(self, ctx, channel:str)-> None:
         voice_channels = ctx.guild.voice_channels

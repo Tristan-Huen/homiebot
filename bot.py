@@ -11,7 +11,8 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix = '$', intents = intents)
+activity = discord.Game(name="$help")
+bot = commands.Bot(command_prefix = '$', activity=activity, intents = intents)
 discord.utils.setup_logging()
 
 @bot.event
@@ -19,7 +20,7 @@ async def on_ready() -> None:
     print('We have logged in as {0.user}'.format(bot))
 
 #Loads a cog.
-@bot.command()
+@bot.command(hidden=True)
 async def load(ctx, extension) -> None:
     try:
         await bot.load_extension(f"cogs.{extension}")
@@ -31,7 +32,7 @@ async def load(ctx, extension) -> None:
         await ctx.reply(f"{extension} cog is loaded")
         
 #Unloads a cog.
-@bot.command()
+@bot.command(hidden=True)
 async def unload(ctx, extension) -> None:
     try:
         await bot.unload_extension(f"cogs.{extension}")
@@ -41,7 +42,7 @@ async def unload(ctx, extension) -> None:
         await ctx.reply(f"{extension} cog is unloaded")
 
 #Reloads a cog.
-@bot.command()
+@bot.command(hidden=True)
 async def reload(ctx, extension) -> None:
     await bot.unload_extension(f"cogs.{extension}")
     await bot.load_extension(f"cogs.{extension}")
