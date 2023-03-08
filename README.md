@@ -1,7 +1,7 @@
 # HomieBot
 <img src="https://user-images.githubusercontent.com/103806406/223017612-6aec4e3a-64c5-4095-a3f2-74e2f60f25c6.png" width=10% height=10%>
 
-My Discord bot for my own server. Use the ``$help`` command to see a list of commands. Additionally use `$help [command_name]` for detailed help on a certain command.  
+My Discord bot for my own server. Use the `$help` command to see a list of commands. Additionally use `$help [command_name]` for detailed help on a certain command.  
 
 ## Features
 
@@ -12,7 +12,6 @@ My Discord bot for my own server. Use the ``$help`` command to see a list of com
   - Mispelling of channel argument corrects to most likely channel name (Uses the Levenshtein distance).
 - Mass deletion of messages.
   - Limit of 100 messages deletable at a time.
-
 
 ### Weather
 - Current weather
@@ -32,4 +31,10 @@ My Discord bot for my own server. Use the ``$help`` command to see a list of com
 
 Using the `$weather` command:
 
-<img src = "https://user-images.githubusercontent.com/103806406/223621188-e972f4fd-04e9-412b-8503-48f2cf0a49d3.png" width=30% height=30%>
+<img src = "https://user-images.githubusercontent.com/103806406/223621188-e972f4fd-04e9-412b-8503-48f2cf0a49d3.png" width=40% height=40%>
+
+## To-Do
+- [ ] Finish fleshing out help command.
+- [ ] Implement entertainment commands.
+- [ ] Implement hybrid commands.
+- [ ] Add proper comments for most command functions.
