@@ -155,7 +155,7 @@ class Weather(commands.Cog):
     
     #Current Weather Command
     @commands.command(help="Gives the current weather in a city.")
-    async def weather(self, ctx, *, city:str = DEFAULT_CITY) -> None:
+    async def weather(self, ctx:commands.Context, *, city:str = DEFAULT_CITY) -> None:
 
         #Argument can be in form of City,Country Code (last is optional but will
         # default to some random option)
@@ -216,7 +216,7 @@ class Weather(commands.Cog):
 
     #7-Day Forecast Command
     @commands.command(help="Gives the weekly forecast for city.")
-    async def weeklyforecast(self, ctx, *, city:str = DEFAULT_CITY) -> None:
+    async def weeklyforecast(self, ctx:commands.Context, *, city:str = DEFAULT_CITY) -> None:
 
         #Argument can be in form of City,Country Code (last is optional but will
         # default to some random option)

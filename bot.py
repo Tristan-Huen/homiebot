@@ -19,8 +19,18 @@ discord.utils.setup_logging()
 async def on_ready() -> None:
     print('We have logged in as {0.user}'.format(bot))
 
+#Command to sync slash commands
+@bot.command(hidden=True)
+@commands.is_owner()
+async def sync(ctx: commands.Context) -> None:
+    synced = await ctx.bot.tree.sync()
+
+    await ctx.send(f"Synced {len(synced)} commands")
+
+
 #Loads a cog.
 @bot.command(hidden=True)
+@commands.is_owner()
 async def load(ctx, extension) -> None:
     try:
         await bot.load_extension(f"cogs.{extension}")
@@ -33,6 +43,7 @@ async def load(ctx, extension) -> None:
         
 #Unloads a cog.
 @bot.command(hidden=True)
+@commands.is_owner()
 async def unload(ctx, extension) -> None:
     try:
         await bot.unload_extension(f"cogs.{extension}")
@@ -43,6 +54,7 @@ async def unload(ctx, extension) -> None:
 
 #Reloads a cog.
 @bot.command(hidden=True)
+@commands.is_owner()
 async def reload(ctx, extension) -> None:
     await bot.unload_extension(f"cogs.{extension}")
     await bot.load_extension(f"cogs.{extension}")

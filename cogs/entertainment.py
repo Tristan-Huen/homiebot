@@ -8,7 +8,7 @@ class Entertainment(commands.Cog):
         self.bot = bot
 
     @commands.command(help="This command is unfinished and only exists as a test for formatting.")
-    async def movie(self, ctx) -> None:
+    async def movie(self, ctx:commands.Context) -> None:
         movie_dict = {
                       'title': 'The Last of Us', 
                       'year': '(2023)', 'rating': 9.1, 'runtime': '50 min', 
