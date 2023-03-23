@@ -3,11 +3,6 @@ import re
 from discord.ext import commands
 import os, random
 
-#NOTE: Slash commands can time out after 3 seconds resulting in an interaction failure 
-#      regardless of the content being successfully sent. Fix for most is .respond() 
-#      or .reply() instead of .send(). Still need to fix purge command and see if
-#      aliases can be implemented or not.  
-
 def levenshtein_distance(s:str,t:str) -> int:
     """
     Computes the Levenshtein distance between two strings
@@ -62,25 +57,40 @@ class AdminCommands(commands.Cog):
             self.ivaylo_quotes = f.readlines()
 
     # Ping Command.
-    @commands.hybrid_command(help="Returns bot latency in milliseconds.")
+    @commands.hybrid_command(
+            description="Get bot latency",
+            help="Returns bot latency in milliseconds."
+    )
     async def ping(self, ctx:commands.Context)-> None:
         #Fixed by https://stackoverflow.com/questions/65263497/latency-in-a-cog-in-discord-py-isnt-recognized-as-a-valid-attribute
         await ctx.reply(f'Pong! {round(self.bot.latency * 1000)} ms')
 
     # Purge Command
-    @commands.hybrid_command(aliases = ['purge','delete'], description='Purges a given amount of messages.',
-                      help="Deletes a given amount of messages. Max limit is 100.")
+    @commands.hybrid_command(
+            aliases = ['clear','delete'], 
+            description='Purges a given amount of messages.',
+            help="Deletes a given amount of messages. Max limit is 100."
+    )
     @commands.has_permissions(manage_messages=True)
-    async def clear(self, ctx:commands.Context, limit:int)-> None:
-        if limit == None:
+    async def purge(self, ctx:commands.Context, amount:int)-> None:
+        await ctx.defer(ephemeral=True)
+
+        if amount == None:
             await ctx.channel.purge(limit = 0)
-        elif limit > 99:
+        elif amount > 99:
             await ctx.channel.purge(limit = 100)
         else:
-            await ctx.channel.purge(limit = limit + 1)
+            await ctx.channel.purge(limit = amount + 1)
+        
+        #Hybrid commands already handle followups so, just use ctx.send instead of ctx.channel.send.
+        await ctx.send(f"Deleted {amount if amount <= 99 else 100} messages", delete_after=2)
 
     # Random Image of Person Command.
-    @commands.command(help="Gets the photo of a random person in the server. Use their first name with the first letter capitalized.")
+    @commands.hybrid_command(
+            description="Gets the photo of a random person in the server. Use their first name with the first letter capitalized.",
+            help="Gets the photo of a random person in the server. Use their first name with the first letter capitalized."
+    )
+    @commands.is_owner() #Temporary since command needs overhauling
     async def image(self, ctx:commands.Context, name:str) -> None:
         try:
             photo = random.choice(os.listdir(os.getenv('PHOTO_DIRECTORY') + name))
@@ -99,19 +109,28 @@ class AdminCommands(commands.Cog):
             await ctx.channel.send(photo=discord.File(os.getenv('PHOTO_DIRECTORY') + name + "\\" +photo))
 
     # Send random Mark Adlib.
-    @commands.hybrid_command(help="Says a random Mark adlib.")
+    @commands.hybrid_command(
+            description="Say a Mark adlib",
+            help="Says a random Mark adlib."
+    )
     async def markadlib(self, ctx:commands.Context)-> None:
         adlib = random.choice(self.mark_quotes)
-        await ctx.channel.send(f"Mark says: {adlib}")
+        await ctx.reply(f"Mark says: {adlib}")
 
     # Send random Ivaylo League quote.
-    @commands.hybrid_command(help="Says a random Ivaylo quote when he plays LOL")
+    @commands.hybrid_command(
+            description="Say a Ivaylo quote from LOL",
+            help="Says a random Ivaylo quote when he plays LOL"
+    )
     async def ivayloquote(self, ctx:commands.Context)-> None:
         quote = random.choice(self.ivaylo_quotes)
-        await ctx.channel.send(f"Ivaylo in League of Legends says: {quote}")
+        await ctx.reply(f"Ivaylo in League of Legends says: {quote}")
     
     # Moves members to a specified channel.
-    @commands.command(help="Moves the given user(s) to a specified voice channel")
+    @commands.hybrid_command(
+            description="Move members in to a voice channel. Use @ symbol for users",
+            help="Moves the given user(s) to a specified voice channel"
+    )
     @commands.has_guild_permissions(move_members=True) #Other permissions property assumes only text-channels
     async def move(self, ctx:commands.Context, users:commands.Greedy[discord.Member], *,channel:str)-> None:
         names = ", ".join(user.display_name for user in users)
@@ -145,7 +164,10 @@ class AdminCommands(commands.Cog):
         await ctx.reply(f"Moved {names} to {channel}")
     
     # Moves all members in the user's voice channnel to a specified channel.
-    @commands.command(help="Moves all the members in your current voice channel to a specified voice channel")
+    @commands.hybrid_command(
+            description="Move all members in current channel to another",
+            help="Moves all the members in your current voice channel to a specified voice channel"
+    )
     @commands.has_guild_permissions(move_members=True) #Other permissions property assumes only text-channels
     async def moveall(self, ctx:commands.Context, channel:str)-> None:
         voice_channels = ctx.guild.voice_channels

@@ -154,8 +154,12 @@ class Weather(commands.Cog):
         self.bot = bot
     
     #Current Weather Command
-    @commands.command(help="Gives the current weather in a city.")
+    @commands.hybrid_command(
+            description="Gives the current weather in a city. Format for city is [city_name, country]",
+            help="Gives the current weather in a city. Format for city is [city_name, country]"
+    )
     async def weather(self, ctx:commands.Context, *, city:str = DEFAULT_CITY) -> None:
+        await ctx.defer()
 
         #Argument can be in form of City,Country Code (last is optional but will
         # default to some random option)
@@ -215,9 +219,13 @@ class Weather(commands.Cog):
                 await ctx.send(embed=embed)
 
     #7-Day Forecast Command
-    @commands.command(help="Gives the weekly forecast for city.")
+    @commands.hybrid_command(
+            description="Gives the weekly forecast for a city. Format for city is [city_name, country]",
+            help="Gives the weekly forecast for city. Format for city is [city_name, country]"
+    )
     async def weeklyforecast(self, ctx:commands.Context, *, city:str = DEFAULT_CITY) -> None:
-
+        await ctx.defer()
+        
         #Argument can be in form of City,Country Code (last is optional but will
         # default to some random option)
         if "," in city:
@@ -248,6 +256,9 @@ class Weather(commands.Cog):
 
                 formatter = ForecastSource(forecast_data, per_page=1)
                 menu = MyMenuPages(formatter)
+
+                #Unless pagination code is rewritten we must directly reply like this to avoid the "The application did not respond".
+                await ctx.send(f"Here is the weekly forecast for {city}, {country}") 
                 await menu.start(ctx)
            
 async def setup(bot) -> None:

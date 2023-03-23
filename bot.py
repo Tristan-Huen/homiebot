@@ -31,7 +31,7 @@ async def sync(ctx: commands.Context) -> None:
 #Loads a cog.
 @bot.command(hidden=True)
 @commands.is_owner()
-async def load(ctx, extension) -> None:
+async def load(ctx:commands.Context, extension) -> None:
     try:
         await bot.load_extension(f"cogs.{extension}")
     except commands.ExtensionAlreadyLoaded:
@@ -44,7 +44,7 @@ async def load(ctx, extension) -> None:
 #Unloads a cog.
 @bot.command(hidden=True)
 @commands.is_owner()
-async def unload(ctx, extension) -> None:
+async def unload(ctx:commands.Context, extension) -> None:
     try:
         await bot.unload_extension(f"cogs.{extension}")
     except commands.ExtensionNotLoaded:
@@ -55,10 +55,14 @@ async def unload(ctx, extension) -> None:
 #Reloads a cog.
 @bot.command(hidden=True)
 @commands.is_owner()
-async def reload(ctx, extension) -> None:
-    await bot.unload_extension(f"cogs.{extension}")
-    await bot.load_extension(f"cogs.{extension}")
-    await ctx.reply(f"{extension} cog has been reloaded")
+async def reload(ctx:commands.Context, extension) -> None:
+    try:
+        await bot.unload_extension(f"cogs.{extension}")
+    except commands.ExtensionNotLoaded: 
+        await ctx.reply(f"{extension} cog could not be reloaded")
+    else:
+        await bot.load_extension(f"cogs.{extension}")
+        await ctx.reply(f"{extension} cog has been reloaded")
 
 #Loads extensions from file.
 async def load_extensions() -> None:
