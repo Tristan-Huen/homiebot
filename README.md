@@ -36,5 +36,5 @@ Using the `$weather` command:
 ## To-Do
 - [ ] Finish fleshing out help command.
 - [ ] Implement entertainment commands.
-- [ ] Implement hybrid commands.
+- [x] Implement hybrid commands.
 - [ ] Add proper comments for most command functions.
