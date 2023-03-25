@@ -75,38 +75,56 @@ class AdminCommands(commands.Cog):
     async def purge(self, ctx:commands.Context, amount:int)-> None:
         await ctx.defer(ephemeral=True)
 
-        if amount == None:
-            await ctx.channel.purge(limit = 0)
+        #Since the slash command purges an extra message we can take advantage of the fact that
+        #ctx.interaction only exists when invoked as a slash command.
+        if(ctx.interaction):
+            amount = amount -1
+
+        if amount < 0:
+            if ctx.interaction:
+                await ctx.channel.purge(limit = 0)
+                amount = -1
+            else:
+                await ctx.channel.purge(limit = 1)
+                amount = 0
         elif amount > 99:
             await ctx.channel.purge(limit = 100)
         else:
             await ctx.channel.purge(limit = amount + 1)
         
         #Hybrid commands already handle followups so, just use ctx.send instead of ctx.channel.send.
-        await ctx.send(f"Deleted {amount if amount <= 99 else 100} messages", delete_after=2)
+        if(ctx.interaction):
+            await ctx.send(f"Deleted {amount+1 if amount <= 99 else 100} messages", delete_after=2)
+        else:
+            await ctx.send(f"Deleted {amount if amount <= 99 else 100} messages", delete_after=2)
 
     # Random Image of Person Command.
     @commands.hybrid_command(
-            description="Gets the photo of a random person in the server. Use their first name with the first letter capitalized.",
+            description="Gets the photo of a random person. Use their first name with the first letter capitalized.",
             help="Gets the photo of a random person in the server. Use their first name with the first letter capitalized."
     )
     @commands.is_owner() #Temporary since command needs overhauling
     async def image(self, ctx:commands.Context, name:str) -> None:
+        PHOTO_DIRECTORY =os.getenv('PHOTO_DIRECTORY')
+
         try:
-            photo = random.choice(os.listdir(os.getenv('PHOTO_DIRECTORY') + name))
+            photo = random.choice(os.listdir(PHOTO_DIRECTORY + name))
 
             #Discord can't display HEIC files so just pass them.
             #Unless I can figure out a way to convert these files. 
             while(photo.endswith("HEIC")):
-                photo = random.choice(os.listdir(os.getenv('PHOTO_DIRECTORY') + name))
+                photo = random.choice(os.listdir(PHOTO_DIRECTORY + name))
         except FileNotFoundError:
-            await ctx.channel.send("Person does not exist")
+            await ctx.reply("Person does not exist")
         except discord.errors.HTTPException:
             #Deals with file being bigger than 8MB. Future option is to compress and then send
-            while(int(os.path.getsize(os.getenv('PHOTO_DIRECTORY') + name + "\\" +photo)) >= 8388608):
-                photo = random.choice(os.listdir(os.getenv('PHOTO_DIRECTORY') + name))
+            while(int(os.path.getsize(PHOTO_DIRECTORY + name + "\\" +photo)) >= 8388608):
+                photo = random.choice(os.listdir(PHOTO_DIRECTORY + name))
         else:
-            await ctx.channel.send(photo=discord.File(os.getenv('PHOTO_DIRECTORY') + name + "\\" +photo))
+            with open(PHOTO_DIRECTORY + name + "\\" + photo, mode='rb') as p:
+                file = discord.File(p)
+
+            await ctx.reply(file=file)
 
     # Send random Mark Adlib.
     @commands.hybrid_command(
@@ -133,7 +151,6 @@ class AdminCommands(commands.Cog):
     )
     @commands.has_guild_permissions(move_members=True) #Other permissions property assumes only text-channels
     async def move(self, ctx:commands.Context, users:commands.Greedy[discord.Member], *,channel:str)-> None:
-        names = ", ".join(user.display_name for user in users)
         voice_channels = ctx.guild.voice_channels
         voice_channels_names = [chan.name for chan in voice_channels]
         voice_channels_stripped = [re.sub(self.ALPHANUMERIC_MATCH, "",chan).lower() for chan in voice_channels_names]
@@ -159,9 +176,21 @@ class AdminCommands(commands.Cog):
             #Find discord.VoiceChannel object that matches channel name
             channel = next((chan for chan in voice_channels if chan.name == channel),None)
 
+        users = list(dict.fromkeys(users))
+
         for user in users:
-            await user.move_to(channel=channel)
-        await ctx.reply(f"Moved {names} to {channel}")
+            try:
+                await user.move_to(channel=channel)
+            except discord.errors.HTTPException:
+                users.remove(user)
+            except discord.ext.commands.errors.MemberNotFound:
+                users.remove(user)
+
+        names = ", ".join(user.display_name for user in users)
+        if names:
+            await ctx.reply(f"Moved {names} to {channel}")
+        else:
+            await ctx.reply("No members to move.")
     
     # Moves all members in the user's voice channnel to a specified channel.
     @commands.hybrid_command(
