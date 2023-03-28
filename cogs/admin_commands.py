@@ -1,6 +1,8 @@
 import discord
 import re
+import asyncio
 from discord.ext import commands
+from collections import deque
 import os, random
 
 def levenshtein_distance(s:str,t:str) -> int:
@@ -233,6 +235,67 @@ class AdminCommands(commands.Cog):
         for user in users:
             await user.move_to(channel=channel)
         await ctx.reply(f"Moved {names} to {channel}")
+
+    @commands.hybrid_command(
+            description="Mutes all users for a certain amount of seconds.",
+            help="Mutes all users for a certain amount of seconds."
+    )
+    @commands.has_guild_permissions(mute_members=True)
+    async def muteall(self,ctx:commands.Context,time:int) -> None:
+        if(time > 60):
+            time = 60
+
+        author = ctx.message.author
+        chan_author = author.voice.channel
+        users = chan_author.members
+
+        for user in users:
+            await user.edit(mute=True)
+
+        await ctx.reply(f"Muted all users for {time}s.")
+        await asyncio.sleep(time)
+
+        for user in users:
+            await user.edit(mute=False)
+
+        await ctx.edit(f"Unmuted all users.")
+
+    @commands.hybrid_command(
+            description="Only one person can talk at a time. Default talktime is 60s.",
+            help="Mutes all users and only allows one to talk at a time for a certain duration."
+    )
+    async def talkingstick(self, ctx:commands.Context, talktime:int=60) -> None:
+        if(talktime > 60):
+            talktime = 60    
+
+        author = ctx.message.author
+        chan_author = author.voice.channel
+        users = chan_author.members
+        user_stick = author
+
+        for user in users:
+            if(user != user_stick):
+                await user.edit(mute=True)
+        
+        message = await ctx.reply(f"{author.display_name} has the talking stick for {talktime}s.")
+        await asyncio.sleep(talktime)
+        await user_stick.edit(mute=True)
+
+        user_queue = deque(users)
+
+        while (len(user_queue) != 0):
+            user_stick = user_queue.popleft()
+
+            if(user_stick != author):
+                await user_stick.edit(mute=False)
+                await message.edit(content=f"{user_stick.display_name} has the talking stick for {talktime}s.")
+                await asyncio.sleep(talktime)
+                await user_stick.edit(mute=True)
+
+        for user in users:
+            await user.edit(mute=False)
+        
+        await message.edit(content="Talking stick has been destroyed.")
 
 
 async def setup(bot)-> None:
