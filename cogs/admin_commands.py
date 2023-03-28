@@ -1,9 +1,12 @@
 import discord
 import re
 import asyncio
+import os, random
 from discord.ext import commands
 from collections import deque
-import os, random
+from typing import List, Any, Callable, TypeVar
+
+T = TypeVar('T')
 
 def levenshtein_distance(s:str,t:str) -> int:
     """
@@ -57,6 +60,31 @@ class AdminCommands(commands.Cog):
 
         with open("ivaylo_quotes.txt") as f:
             self.ivaylo_quotes = f.readlines()
+
+    async def __concurrent_execute(self, objs:List[T], method:Callable[..., Any], *args:Any, **kwargs:Any) -> List[Any]:
+        """
+        Concurrently executes an object method on each object in a list.
+    
+        Uses asyncio to execute an object method on each object in a list by using `asyncio.gather`.
+    
+        Parameters
+        ----------
+        objs (List[Any]): A list of objects all of the same type/class.
+        method (Callable): A method to execute on each object.
+        args (Any): Optional positional arguments to be passed to the method.
+        kwargs (Any): Optional keyword arguments to be passed to the method.
+    
+        Returns
+        ----------
+        (List[Any]): A list of results returned by the method.
+        """
+
+        tasks = []
+        for obj in objs:
+            task = asyncio.ensure_future(method(obj, *args, **kwargs))
+            tasks.append(task)
+        
+        return await asyncio.gather(*tasks)
 
     # Ping Command.
     @commands.hybrid_command(
@@ -124,9 +152,9 @@ class AdminCommands(commands.Cog):
                 photo = random.choice(os.listdir(PHOTO_DIRECTORY + name))
         else:
             with open(PHOTO_DIRECTORY + name + "\\" + photo, mode='rb') as p:
-                file = discord.File(p)
+                photo_file = discord.File(p)
 
-            await ctx.reply(file=file)
+            await ctx.reply(file=photo_file)
 
     # Send random Mark Adlib.
     @commands.hybrid_command(
@@ -180,6 +208,7 @@ class AdminCommands(commands.Cog):
 
         users = list(dict.fromkeys(users))
 
+        #Test this with asyncio tasks to see if an exception occurs or not.
         for user in users:
             try:
                 await user.move_to(channel=channel)
@@ -232,13 +261,13 @@ class AdminCommands(commands.Cog):
 
         names = ", ".join(user.display_name for user in users)
 
-        for user in users:
-            await user.move_to(channel=channel)
+        await self.__concurrent_execute(users,discord.Member.move_to,channel=channel)
+
         await ctx.reply(f"Moved {names} to {channel}")
 
     @commands.hybrid_command(
-            description="Mutes all users for a certain amount of seconds.",
-            help="Mutes all users for a certain amount of seconds."
+            description="Mutes all users except command sender for a certain amount of seconds.",
+            help="Mutes all users except command sender for a certain amount of seconds."
     )
     @commands.has_guild_permissions(mute_members=True)
     async def muteall(self,ctx:commands.Context,time:int) -> None:
@@ -248,17 +277,19 @@ class AdminCommands(commands.Cog):
         author = ctx.message.author
         chan_author = author.voice.channel
         users = chan_author.members
+        tasks = []
 
         for user in users:
-            await user.edit(mute=True)
+            if(user != author):
+                task = asyncio.ensure_future(user.edit(mute=True))
+                tasks.append(task)
 
-        await ctx.reply(f"Muted all users for {time}s.")
+        await asyncio.gather(*tasks)
+        message = await ctx.reply(f"Muted all users for {time}s.")
         await asyncio.sleep(time)
 
-        for user in users:
-            await user.edit(mute=False)
-
-        await ctx.edit(f"Unmuted all users.")
+        await self.__concurrent_execute(users,discord.Member.edit,mute=False)
+        await message.edit(content="Unmuted all users.")
 
     @commands.hybrid_command(
             description="Only one person can talk at a time. Default talktime is 60s.",
@@ -272,11 +303,14 @@ class AdminCommands(commands.Cog):
         chan_author = author.voice.channel
         users = chan_author.members
         user_stick = author
+        tasks = []
 
         for user in users:
             if(user != user_stick):
-                await user.edit(mute=True)
+                task = asyncio.ensure_future(user.edit(mute=True))
+                tasks.append(task)
         
+        await asyncio.gather(*tasks)
         message = await ctx.reply(f"{author.display_name} has the talking stick for {talktime}s.")
         await asyncio.sleep(talktime)
         await user_stick.edit(mute=True)
@@ -284,6 +318,14 @@ class AdminCommands(commands.Cog):
         user_queue = deque(users)
 
         while (len(user_queue) != 0):
+
+            #Takes care of when a new user joins the channel
+            new_user_list = set(ctx.message.author.voice.channel.members).difference(set(users))
+            if(new_user_list):
+                users = ctx.message.author.voice.channel.members
+                await self.__concurrent_execute(new_user_list,discord.Member.edit,mute=True)
+                user_queue.extend(new_user_list)
+
             user_stick = user_queue.popleft()
 
             if(user_stick != author):
@@ -292,9 +334,7 @@ class AdminCommands(commands.Cog):
                 await asyncio.sleep(talktime)
                 await user_stick.edit(mute=True)
 
-        for user in users:
-            await user.edit(mute=False)
-        
+        await self.__concurrent_execute(users,discord.Member.edit,mute=False)
         await message.edit(content="Talking stick has been destroyed.")
 
 
