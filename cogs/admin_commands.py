@@ -1,10 +1,12 @@
 import discord
+import inspect
 import re
 import asyncio
 import os, random
 from discord.ext import commands
+from discord.utils import get
 from collections import deque
-from typing import List, Any, Callable, TypeVar
+from typing import List, Any, Set, Iterable, Callable, TypeVar
 
 T = TypeVar('T')
 
@@ -50,26 +52,19 @@ def levenshtein_distance(s:str,t:str) -> int:
         v0,v1 = v1,v0
     return v0[t_len]
 
-class AdminCommands(commands.Cog):
-    def __init__(self, bot)-> None:
-        self.bot = bot
-        self.ALPHANUMERIC_MATCH = r"[^a-zA-Z0-9\s]+"
-
-        with open("mark_adlibs.txt") as f:
-            self.mark_quotes = f.readlines()
-
-        with open("ivaylo_quotes.txt") as f:
-            self.ivaylo_quotes = f.readlines()
-
-    async def __concurrent_execute(self, objs:List[T], method:Callable[..., Any], *args:Any, **kwargs:Any) -> List[Any]:
+async def concurrent_execute(objs:Iterable[T],objs_skip:Set[T] | T, method:Callable[..., Any], *args:Any, **kwargs:Any) -> List[Any]:
         """
-        Concurrently executes an object method on each object in a list.
+        Concurrently executes an object method on each object in a list and allows ability to skip objects
+        in the list.
     
-        Uses asyncio to execute an object method on each object in a list by using `asyncio.gather`.
+        Uses asyncio to execute an object method on each object in a list by using `asyncio.gather`. 
+        There is an additional parameter containing set of objects whose execution will be skipped. 
+        Use `None` for this parameter if no skips are required. 
     
         Parameters
         ----------
-        objs (List[Any]): A list of objects all of the same type/class.
+        objs (Iterable[T]): A iterable of objects all of the same type/class.
+        objs_skip (Set[T] | T): A set of objects or object in objs which will be skipped. Use `None` if nothing to skip. 
         method (Callable): A method to execute on each object.
         args (Any): Optional positional arguments to be passed to the method.
         kwargs (Any): Optional keyword arguments to be passed to the method.
@@ -79,12 +74,92 @@ class AdminCommands(commands.Cog):
         (List[Any]): A list of results returned by the method.
         """
 
-        tasks = []
-        for obj in objs:
-            task = asyncio.ensure_future(method(obj, *args, **kwargs))
-            tasks.append(task)
+        if objs_skip is None:
+
+            tasks = []
+            for obj in objs:
+                task = asyncio.ensure_future(method(obj, *args, **kwargs))
+                tasks.append(task)
+        
+        else:
+            if(type(objs_skip) == set):   
+                tasks = []
+                for obj in objs:
+                    if obj not in objs_skip:
+                        task = asyncio.ensure_future(method(obj, *args, **kwargs))
+                        tasks.append(task)
+            else:
+                tasks = []
+                for obj in objs:
+                    if obj != objs_skip:
+                        task = asyncio.ensure_future(method(obj, *args, **kwargs))
+                        tasks.append(task)
         
         return await asyncio.gather(*tasks)
+
+class Voter(discord.ui.View):
+
+    def __init__(self,max_votes:int) -> None:
+        super().__init__(timeout=15)
+        self.users = set()
+        self.max_votes = max_votes
+        self.votes = 0
+    
+    @discord.ui.button(label='0', style=discord.ButtonStyle.red)
+    async def count(self, interaction:discord.Interaction, button:discord.ui.Button) -> None:
+        if(interaction.user not in self.users):
+            self.users.add(interaction.user)
+
+            self.votes = int(button.label) if button.label else 0
+            if self.votes + 1 >= self.max_votes:
+                button.style = discord.ButtonStyle.green
+                button.disabled = True
+                self.stop()
+            button.label = str(self.votes+1)
+
+        await interaction.response.edit_message(view=self)
+
+class AdminCommands(commands.Cog):
+    def __init__(self, bot)-> None:
+        self.bot = bot
+        self.ALPHANUMERIC_MATCH = r"[^a-zA-Z0-9\s]+"
+        self.talkingstick_active = False
+        self.muteall_active = False
+        self.talkingstick_chan = None
+        self.muteall_chan = None
+
+        #NOTE: Currently do not like this as I would prefer a non-shared variable if multiple timers exist.
+        #      For now such an implementation works but for the future I would prefer some kind of way to have
+        #      each instance of a countdown timer have their own way to cancel without relying on a single class
+        #      variable shared by all.       
+        self.cancel_timer = False
+        
+        with open("mark_adlibs.txt") as f:
+            self.mark_quotes = f.readlines()
+
+        with open("ivaylo_quotes.txt") as f:
+            self.ivaylo_quotes = f.readlines()
+
+    async def countdown(self, t: int, message:discord.Message, content:str) -> None:
+
+        while t > 0 and not self.cancel_timer:
+            await message.edit(content = content + str(t) + "s.")
+            t -= 1
+            await asyncio.sleep(1)
+        
+        self.cancel_timer = False
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member:discord.Member, before:discord.VoiceState, after:discord.VoiceState) -> None:
+
+        if (self.talkingstick_active or self.muteall_active):
+
+            if before.channel is not self.muteall_chan and after.channel == self.muteall_chan:
+                try:
+                    await member.edit(mute = True)
+                except discord.errors.HTTPException:
+                    pass
+
 
     # Ping Command.
     @commands.hybrid_command(
@@ -261,7 +336,7 @@ class AdminCommands(commands.Cog):
 
         names = ", ".join(user.display_name for user in users)
 
-        await self.__concurrent_execute(users,discord.Member.move_to,channel=channel)
+        await concurrent_execute(users, None, discord.Member.move_to, channel=channel)
 
         await ctx.reply(f"Moved {names} to {channel}")
 
@@ -271,72 +346,103 @@ class AdminCommands(commands.Cog):
     )
     @commands.has_guild_permissions(mute_members=True)
     async def muteall(self,ctx:commands.Context,time:int) -> None:
+        self.muteall_active = True
+
         if(time > 60):
             time = 60
 
         author = ctx.message.author
         chan_author = author.voice.channel
+        self.muteall_chan = chan_author
         users = chan_author.members
-        tasks = []
 
-        for user in users:
-            if(user != author):
-                task = asyncio.ensure_future(user.edit(mute=True))
-                tasks.append(task)
+        #Mute all users except for author.
+        await concurrent_execute(users, author, discord.Member.edit, mute=True)
 
-        await asyncio.gather(*tasks)
-        message = await ctx.reply(f"Muted all users for {time}s.")
-        await asyncio.sleep(time)
+        #Countdown mute time.
+        message = await ctx.reply("Muted all users.")
+        content = "Muted all users for " 
+        await self.countdown(time,message,content)
 
-        await self.__concurrent_execute(users,discord.Member.edit,mute=False)
+        await concurrent_execute(users, None, discord.Member.edit, mute=False)
         await message.edit(content="Unmuted all users.")
+
+        self.muteall_active = False
+        self.muteall_chan = None
 
     @commands.hybrid_command(
             description="Only one person can talk at a time. Default talktime is 60s.",
             help="Mutes all users and only allows one to talk at a time for a certain duration."
     )
     async def talkingstick(self, ctx:commands.Context, talktime:int=60) -> None:
+        if(self.talkingstick_active):
+            await ctx.reply("There can only be one talking stick!")
+            return
+
+        self.talkingstick_active = True
+
         if(talktime > 60):
-            talktime = 60    
+            talktime = 60
+        elif(talktime <= 0):
+            talktime = 1    
 
         author = ctx.message.author
         chan_author = author.voice.channel
+        self.talkingstick_chan = chan_author
         users = chan_author.members
         user_stick = author
-        tasks = []
 
-        for user in users:
-            if(user != user_stick):
-                task = asyncio.ensure_future(user.edit(mute=True))
-                tasks.append(task)
-        
-        await asyncio.gather(*tasks)
-        message = await ctx.reply(f"{author.display_name} has the talking stick for {talktime}s.")
-        await asyncio.sleep(talktime)
+        await concurrent_execute(users, user_stick, discord.Member.edit, mute=True)
+
+        #Start with author first.
+        message = await ctx.reply(f"{author.display_name} has the talking stick.")
+        content=f"{author.display_name} has the talking stick for "
+        await self.countdown(talktime, message, content)
         await user_stick.edit(mute=True)
 
         user_queue = deque(users)
 
         while (len(user_queue) != 0):
 
-            #Takes care of when a new user joins the channel
+            #Takes care of when a new user joins the channel. Note: needs more work.
             new_user_list = set(ctx.message.author.voice.channel.members).difference(set(users))
             if(new_user_list):
                 users = ctx.message.author.voice.channel.members
-                await self.__concurrent_execute(new_user_list,discord.Member.edit,mute=True)
                 user_queue.extend(new_user_list)
 
             user_stick = user_queue.popleft()
 
             if(user_stick != author):
                 await user_stick.edit(mute=False)
-                await message.edit(content=f"{user_stick.display_name} has the talking stick for {talktime}s.")
-                await asyncio.sleep(talktime)
+                content=f"{user_stick.display_name} has the talking stick for "
+                await self.countdown(talktime, message, content)
+
                 await user_stick.edit(mute=True)
 
-        await self.__concurrent_execute(users,discord.Member.edit,mute=False)
+        await concurrent_execute(users, None, discord.Member.edit, mute=False)
         await message.edit(content="Talking stick has been destroyed.")
 
+        self.talkingstick_active = False
+        self.talkingstick_chan = None
+    
+    @commands.hybrid_command(
+            description="Votes to skip the current user with the talking stick.",
+            help="Votes to skip the current user with the talking stick."
+    )
+    async def skipturn(self,ctx:commands.Context):
+        if self.talkingstick_active:
+            max_votes = round(len(ctx.message.author.voice.channel.members) * 0.5)
+
+            voter = Voter(max_votes=max_votes)
+
+            message = await ctx.send(f"Vote to skip current user. Need {max_votes} votes to skip.", view = voter)
+            await voter.wait()
+            
+            if voter.votes + 1 == max_votes:
+                await message.edit(content="Skipping user.", delete_after=5)
+                self.cancel_timer = True
+            else:
+                await message.edit(content="Not enough votes to skip user.", delete_after=5)
 
 async def setup(bot)-> None:
     await bot.add_cog(AdminCommands(bot))
