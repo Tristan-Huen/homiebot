@@ -18,7 +18,6 @@ weather_parameters = {
     "city" : DEFAULT_CITY,
     "country":"",
     "key" : os.getenv('WEATHER_API_KEY'),
-    "include" : "minutely"
 }
 
 weeklyforecast_parameters = {

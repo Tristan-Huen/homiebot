@@ -1,10 +1,7 @@
 import discord
-import inspect
 import re
 import asyncio
-import os, random
 from discord.ext import commands
-from discord.utils import get
 from collections import deque
 from typing import List, Any, Set, Iterable, Callable, TypeVar
 
@@ -133,12 +130,6 @@ class AdminCommands(commands.Cog):
         #      each instance of a countdown timer have their own way to cancel without relying on a single class
         #      variable shared by all.       
         self.cancel_timer = False
-        
-        with open("mark_adlibs.txt") as f:
-            self.mark_quotes = f.readlines()
-
-        with open("ivaylo_quotes.txt") as f:
-            self.ivaylo_quotes = f.readlines()
 
     async def countdown(self, t: int, message:discord.Message, content:str) -> None:
 
@@ -159,16 +150,6 @@ class AdminCommands(commands.Cog):
                     await member.edit(mute = True)
                 except discord.errors.HTTPException:
                     pass
-
-
-    # Ping Command.
-    @commands.hybrid_command(
-            description="Get bot latency",
-            help="Returns bot latency in milliseconds."
-    )
-    async def ping(self, ctx:commands.Context)-> None:
-        #Fixed by https://stackoverflow.com/questions/65263497/latency-in-a-cog-in-discord-py-isnt-recognized-as-a-valid-attribute
-        await ctx.reply(f'Pong! {round(self.bot.latency * 1000)} ms')
 
     # Purge Command
     @commands.hybrid_command(
@@ -202,52 +183,6 @@ class AdminCommands(commands.Cog):
             await ctx.send(f"Deleted {amount+1 if amount <= 99 else 100} messages", delete_after=2)
         else:
             await ctx.send(f"Deleted {amount if amount <= 99 else 100} messages", delete_after=2)
-
-    # Random Image of Person Command.
-    @commands.hybrid_command(
-            description="Gets the photo of a random person. Use their first name with the first letter capitalized.",
-            help="Gets the photo of a random person in the server. Use their first name with the first letter capitalized."
-    )
-    @commands.is_owner() #Temporary since command needs overhauling
-    async def image(self, ctx:commands.Context, name:str) -> None:
-        PHOTO_DIRECTORY =os.getenv('PHOTO_DIRECTORY')
-
-        try:
-            photo = random.choice(os.listdir(PHOTO_DIRECTORY + name))
-
-            #Discord can't display HEIC files so just pass them.
-            #Unless I can figure out a way to convert these files. 
-            while(photo.endswith("HEIC")):
-                photo = random.choice(os.listdir(PHOTO_DIRECTORY + name))
-        except FileNotFoundError:
-            await ctx.reply("Person does not exist")
-        except discord.errors.HTTPException:
-            #Deals with file being bigger than 8MB. Future option is to compress and then send
-            while(int(os.path.getsize(PHOTO_DIRECTORY + name + "\\" +photo)) >= 8388608):
-                photo = random.choice(os.listdir(PHOTO_DIRECTORY + name))
-        else:
-            with open(PHOTO_DIRECTORY + name + "\\" + photo, mode='rb') as p:
-                photo_file = discord.File(p)
-
-            await ctx.reply(file=photo_file)
-
-    # Send random Mark Adlib.
-    @commands.hybrid_command(
-            description="Say a Mark adlib",
-            help="Says a random Mark adlib."
-    )
-    async def markadlib(self, ctx:commands.Context)-> None:
-        adlib = random.choice(self.mark_quotes)
-        await ctx.reply(f"Mark says: {adlib}")
-
-    # Send random Ivaylo League quote.
-    @commands.hybrid_command(
-            description="Say a Ivaylo quote from LOL",
-            help="Says a random Ivaylo quote when he plays LOL"
-    )
-    async def ivayloquote(self, ctx:commands.Context)-> None:
-        quote = random.choice(self.ivaylo_quotes)
-        await ctx.reply(f"Ivaylo in League of Legends says: {quote}")
     
     # Moves members to a specified channel.
     @commands.hybrid_command(
@@ -429,7 +364,7 @@ class AdminCommands(commands.Cog):
             description="Votes to skip the current user with the talking stick.",
             help="Votes to skip the current user with the talking stick."
     )
-    async def skipturn(self,ctx:commands.Context):
+    async def skipturn(self,ctx:commands.Context) -> None:
         if self.talkingstick_active:
             max_votes = round(len(ctx.message.author.voice.channel.members) * 0.5)
 

@@ -9,9 +9,12 @@ My Discord bot for my own server. Use the `$help` command to see a list of comma
 - Moving users in voice channels.
   - Can move a list of users to a given voice channel.
   - Can move all users in the current voice channel to another voice channel.
-  - Mispelling of channel argument corrects to most likely channel name (Uses the Levenshtein distance).
+  - Mispelling of channel argument corrects to most likely channel name.
 - Mass deletion of messages.
   - Limit of 100 messages deletable at a time.
+- Talking Stick
+  - Allows only one person to talk at a time.
+  - People in the voice channel can vote to skip the current person's turn.
 
 ### Weather
 - Current weather
@@ -21,11 +24,9 @@ My Discord bot for my own server. Use the `$help` command to see a list of comma
   - See the 7-day forecast around the world for a given city.
   - Provides similar information to the current weather feature.
   - Information contained in an paginated embed.
-
-### Entertainment (Upcoming)
-- Random movie/show suggestion. 
-  - Allows specification of genre, year, rating, and more.
-  - Output includes information about the film contained in a discord embed.
+  
+> [!NOTE]
+> This requires an API key from Weatherbit.
 
 ## Examples
 
@@ -35,6 +36,6 @@ Using the `$weather` command:
 
 ## To-Do
 - [ ] Finish fleshing out help command.
-- [ ] Implement entertainment commands.
+- [ ] Add logging for debugging.
 - [x] Implement hybrid commands.
 - [ ] Add proper comments for most command functions.
